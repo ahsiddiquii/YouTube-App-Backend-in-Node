@@ -70,7 +70,7 @@ const updateVideo = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Failed to update video please try again")
     }
 
-    await deleteFileFromCloudinary(videotoUpdate.thumbnail.split('/').slice(-1)[0].split('.')[0]);
+    await deleteFileFromCloudinary(videotoUpdate.thumbnail.split('/').slice(-1)[0].split('.')[0], "video");
 
 
     return res.status(200).json(

@@ -16,10 +16,20 @@ const getUserWatchedHistory = asyncHandler(async (req, res) => {
         {
             $lookup: {
                 from: "videos",
-                localField: "watchedHistory",
+                localField: "watchHistory",
                 foreignField: "_id",
                 as: "watchedHistory",
                 pipeline: [
+                    {
+                        $project: {
+                            title: 1,
+                            thumbnail: 1,
+                            videoDuration: 1,
+                            viewCount: 1,
+                            createdAt: 1,
+                            videoUploader: 1
+                        }
+                    },
                     {
                         $lookup: {
                             from: "users",
@@ -32,21 +42,36 @@ const getUserWatchedHistory = asyncHandler(async (req, res) => {
                                         fullName: 1,
                                         username: 1,
                                         avatar: 1
-                                    }
-                                }
+                                    },
+                                },
                             ]
-                        }
+                        },
                     },
                     {
-                        $addFields: {
-                            videoOwner: {
-                                $arrayElemAt: ["$videoOwner", 0]
-                            }
-                        }
-                    }
+                        $addFields:{
+                            videoOwner:{
+                                $first: "$videoOwner"
+                            },
+                        },
+                    },
                 ]
+            },
+        },
+        {
+            $addFields: {
+                watchedVideosCount: {
+                    $size: "$watchedHistory"
+                },
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                watchedHistory: 1,
+                watchedVideosCount: 1
             }
         }
+        
     ])
 
     return res
@@ -54,7 +79,7 @@ const getUserWatchedHistory = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(
                 200,
-                user[0].watchHistory,
+                user[0],
                 "Fetched User Watched History Successfully"
             )
         )

@@ -29,11 +29,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
             },
         })
     };
-
     // 4
     if (userId) {
         if (!isValidObjectId(userId)) {
-            throw new ApiError("Invalid User ID")
+            throw new ApiError(400, "Invalid User ID")
         }
         pipeline.push(
             {
@@ -125,20 +124,156 @@ const getAllVideos = asyncHandler(async (req, res) => {
     );
 
     // 7
+    pipeline.push(
+        {
+            $addFields: {
+                viewsCount: {
+                    $size: "$views"
+                },
+                durationInMinutesAndSecond: {
+                    $concat: [
+                        {
+                            $toString: {
+                                $floor: {
+                                    $divide: ["$duration", 60]
+                                }
+                            }
+                        },
+                        ":",
+                        {
+                            $toString: {
+                                $floor: {
+                                    $mod: ["$duration", 60]
+                                }
+                            }
+                        },
+                    ]
+                },
+                // OR 
+                /* 
+                durationMinutes: { 
+                     $floor: { $divide: ["$duration", 60] } ,
+                     $floor:  { $mod: ["$duration", 60] }
+                 },
+                 durationSeconds: { 
+                     $floor:  { $mod: ["$duration", 60] }
+                 },
+                 */
+            },
+        },
+    )
+
+    // NOTE : 
+    /*
+    // 1
+    Here's a detailed explanation of the two lines in the MongoDB aggregation pipeline:
+    
+    ### 1. `durationMinutes: { $floor: { $divide: ["$duration", 60] } }`
+    
+    This line calculates the number of whole minutes from the `duration` field.
+    
+    - **`$divide: ["$duration", 60]`**: This divides the `duration` value by 60. Since the `duration` is given in seconds, dividing by 60 converts it to minutes. For example, if `duration` is 118.249 seconds, the result of this division is approximately 1.9708 minutes.
+      
+    - **`$floor`**: This operator takes the largest integer less than or equal to the division result. In this example, `1.9708` minutes would be floored to `1` minute.
+    
+    So, this line creates a new field `durationMinutes` that contains the whole minutes part of the `duration`.
+    
+    ### 2. `durationSeconds: { $mod: ["$duration", 60] }`
+    
+    This line calculates the remaining seconds after converting the `duration` to minutes.
+    
+    - **`$mod: ["$duration", 60]`**: The `$mod` operator returns the remainder of the division of `duration` by 60. This effectively gives the number of seconds left after removing the whole minutes. For the same example, `118.249 % 60` results in `58.249` seconds.
+    
+    So, this line creates a new field `durationSeconds` that contains the remaining seconds part of the `duration`.
+    
+    ### Putting It All Together
+    
+    When you run the aggregation pipeline with these operations, the output document will include two new fields:
+    
+    - **`durationMinutes`**: The whole number of minutes in the `duration`.
+    - **`durationSeconds`**: The remaining seconds in the `duration`.
+    
+    For instance, given the `duration` of `118.249` seconds:
+    
+    - `durationMinutes` will be `1`.
+    - `durationSeconds` will be `58.249`.
+    
+    ### Example Document Transformation
+    
+    Given the initial document:
+    
+    ```json
+    {
+        "_id": "669c1bcd2de483adf15852de",
+        "duration": 118.249
+    }
+    ```
+    
+    After applying the aggregation pipeline, the document would be transformed to:
+    
+    ```json
+    {
+        "_id": "669c1bcd2de483adf15852de",
+        "duration": 118.249,
+        "durationMinutes": 1,
+        "durationSeconds": 58.249
+    }
+ 
+    // 2
+    durationInMinutesAndSecond: {
+                    $concat: [
+                        {
+                            $toString: {
+                                $floor: {
+                                    $divide: ["$duration", 60]
+                                }
+                            }
+                        },
+                        ":",
+                        {
+                            $toString: {
+                                $floor: {
+                                    $mod: ["$duration", 60]
+                                }
+                            }
+                        },
+                    ]
+                }
+
+    Explanation
+$floor: { $divide: ["$duration", 60] }: This calculates the number of whole minutes from the duration.
+$mod: ["$duration", 60]: This calculates the remaining seconds after converting the duration to minutes.
+$toString: This converts the numeric values to strings so they can be concatenated.
+$concat: This combines the minute and second strings with the text " minutes " and " seconds" to create the final formatted string.
+
+    */
+
+
+    // 78
     const videoAggregate = await Video.aggregate(pipeline);
 
-    // 8
-    const options = {
-        page : parseInt(page, 10),
-        limit: parseInt(limit, 10),
-    }
-
     // 9
-    const videos = await Video.aggregatePaginate(videoAggregate, options);
+    // const options = {
+    //     page: (10),
+    //     limit: (10),
+    // };
+    const options = {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+    };
+
+    // 10
+    await Video.aggregatePaginate(videoAggregate, options, (error, results) => {
+        if (error) {
+            console.log(error)
+        } else {
+            console.log(results)
+        }
+    });
 
     return res
         .status(200)
-        .json(new ApiResponse(200, videos, "Videos fetched successfully"));
+        .json(new ApiResponse(200, videoAggregate, "Videos fetched successfully"));
 });
 
 export { getAllVideos };

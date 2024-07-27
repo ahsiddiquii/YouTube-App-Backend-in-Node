@@ -1,63 +1,27 @@
-import { asyncHandler } from "../../utilities/asyncHandler.js";
 import { ApiResponse } from "../../utilities/apiResponse.js";
-import { ApiError } from "../../utilities/apiError.js";
+import { asyncHandler } from "../../utilities/asyncHandler.js";
 import mongoose, { isValidObjectId } from "mongoose";
 import { Video } from "../../models/video.model.js";
-import { User } from "../../models/user.model.js";
 
 
-const getVideoById = asyncHandler(async (req, res) => {
+
+const getVideoByIdForGuest = asyncHandler(async (req, res) => {
+
     const { videoId } = req.params;
     // const isGuest = req.query.guest === "true";
 
     // 1
     if (!videoId.trim()) {
-        throw new ApiError(400, "Video ID is missing!")
+        throw new ApiError("Video ID is missing!")
     };
 
     // 2 
     if (!isValidObjectId(videoId)) {
-        throw new ApiError(400, "Invalid Video ID")
+        throw new ApiError("Invalid Video ID")
     };
 
+
     // 3
-    await User.findByIdAndUpdate(req.user._id,
-        {
-            $addToSet: {
-                watchHistory: videoId
-            }
-        }, { new: true }
-    )
-    // NOTE: 
-    
-    // $addToSet: This MongoDB update operator adds a value to an array only if the value doesn't already exist in the array. It ensures there are no duplicate entries in the watchHistory array.
-
-    // OR 
-    // const user = await User.findById(req.user._id);
-    // const isAddedInWatchedHistory = user.watchHistory.includes(videoId);
-    // if (!isAddedInWatchedHistory) {
-    //     user.watchHistory.push(videoId);
-    //     await user.save({ validateBeforeSave: false });
-    // }
-
-    // 4 
-    await Video.findByIdAndUpdate(videoId,
-        {
-            $addToSet: {
-                views: req.user?._id
-            }
-        }, { new: true }
-    )
-    // OR 
-    // const videoClicked = await Video.findById(videoId);
-    // console.log(videoClicked.views);
-    // if (!videoClicked.views.includes(req.user?._id)) {
-    //     videoClicked.views.push(req.user?._id);
-    //     await videoClicked.save({ validateBeforeSave: false });
-    // }
-
-
-    // 5
     const video = await Video.aggregate([
         {
             $match: {
@@ -93,21 +57,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                             subscribers: {
                                 $size: "$subscribers"
                             },
-                            isSubscribed: {
-                                $cond: {
-                                    if: !req.user,
-                                    then: false,
-                                    else: {
-                                        $cond: {
-                                            if: {
-                                                $in: [req.user?._id, "$subscribers.subscriber"],
-                                            },
-                                            then: true,
-                                            else: false
-                                        }
-                                    }
-                                }
-                            }
+                            isSubscribed: false,
                         }
                     },
                     {
@@ -133,22 +83,8 @@ const getVideoById = asyncHandler(async (req, res) => {
                 videoOwner: {
                     $arrayElemAt: ["$videoOwner", 0]
                 },
-                isLiked: {
-                    $cond: {
-                        if: !req.user,
-                        then: false,
-                        else: {
-                            $cond: {
-                                if: {
-                                    $in: [req.user?._id, "$likes.likedBy"]
-                                },
-                                then: true,
-                                else: false
-                            },
-                        }
-                    }
-                },
-                durationInMinutesAndSecond: {
+                isLiked: false,
+                durationInMinutesAndSeconds: {
                     $concat: [
                         {
                             $toString: {
@@ -167,7 +103,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                         }
                     ]
                 },
-            }
+            },
         },
         {
             $project: {
@@ -176,7 +112,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                 thumbnail: 1,
                 title: 1,
                 description: 1,
-                durationInMinutesAndSecond: 1,
+                durationInMinutesAndSeconds: 1,
                 viewsCount: 1,
                 isPublished: 1,
                 createdAt: 1,
@@ -187,17 +123,16 @@ const getVideoById = asyncHandler(async (req, res) => {
         }
     ]);
 
-    // 6
+    // 4
     if (!video) {
-        throw new ApiError(400, "Video not found!");
+        throw new ApiError("Video not found!");
     }
 
     return res
         .status(200)
         .json(
-            new ApiResponse(200, video[0], "Video Successfully get by ID")
+            new ApiResponse("200", video[0], "Video successfully fetched")
         )
-
 });
 
-export { getVideoById };
+export { getVideoByIdForGuest };
