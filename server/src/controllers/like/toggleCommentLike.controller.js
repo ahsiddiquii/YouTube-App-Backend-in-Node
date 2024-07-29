@@ -6,7 +6,7 @@ import { ApiResponse } from "../../utilities/apiResponse.js";
 
 
 
-const toggleCommentLike = asyncHandler(async () => {
+const toggleCommentLike = asyncHandler(async (req, res) => {
     const { commentId } = req.params;
 
     if (!isValidObjectId(commentId)) throw new ApiError(400, "Invalid Comment Id");
@@ -29,7 +29,14 @@ const toggleCommentLike = asyncHandler(async () => {
         await Like.create({
             comment: commentId,
             likedBy: req.user?._id
-        })
+        });
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200, null, "Like Comment Successfully"
+                )
+            );
     }
 
 });

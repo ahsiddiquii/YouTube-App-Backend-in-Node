@@ -41,6 +41,4 @@ app.use("/api/v1/like", likeRoutes)
 // Comment Routes 
 app.use("/api/v1/comment", commentRoutes)
 
-
-
 export { app };

@@ -14,10 +14,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid channel ID!")
     };
 
-    // 2
-    if (!req.user) {
-        throw new ApiError(400, "Unauthorized")
-    }
+    
     // 3
     if (req.user?._id.toString() == channelId.toString()) {
         throw new ApiError(400, "Self Subscription is not allow")
